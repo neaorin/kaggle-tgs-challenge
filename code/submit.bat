@@ -1,0 +1,1 @@
+kaggle competitions submit -f submission.csv -c tgs-salt-identification-challenge -m "model-tgs-salt-fcn-resnet50rv-20-0.13.h5" 
