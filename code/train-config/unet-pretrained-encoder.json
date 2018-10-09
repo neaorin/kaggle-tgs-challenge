@@ -1,0 +1,17 @@
+{
+    "version": "test-1",
+    "name": "unet-pretrained-encoder-%s",
+    "encoder": "resnet34",
+    "encoder_weights": "imagenet",
+    "stage1": {
+        "epochs": 50,
+        "epochs_weights_frozen": 10,
+        "batch_size": 16,
+        "optimizer": {
+            "name": "adam",
+            "initial_learning_rate": 0.01
+        },
+        "loss": "binary_crossentropy"
+    }
+}
+

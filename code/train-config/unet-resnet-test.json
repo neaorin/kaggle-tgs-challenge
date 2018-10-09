@@ -1,0 +1,9 @@
+{
+    "version": "test-10",
+    "name": "unet-resnet-%s",
+    "stage1": {
+        "epochs": 2,
+        "batch_size": 16
+    }
+}
+

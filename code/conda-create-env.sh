@@ -1,0 +1,1 @@
+conda create -n tgschallenge python=3.6 tensorflow=1.10 keras=2.2.4 tqdm scipy matplotlib pandas numpy

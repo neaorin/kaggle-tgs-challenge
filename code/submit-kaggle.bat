@@ -1,0 +1,1 @@
+kaggle competitions submit -f submission.csv -c tgs-salt-identification-challenge -m "model-tgs-salt-validation-dropout-batchnorm-34-0.10.h5" 

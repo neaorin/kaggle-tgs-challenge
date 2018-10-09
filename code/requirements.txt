@@ -1,0 +1,11 @@
+tensorflow-gpu==1.9.0
+keras==2.2.1
+tensorboard==1.9.0 
+scikit-learn
+scikit-image
+imgaug
+opencv-python
+pandas
+numpy
+tqdm
+segmentation_models

@@ -110,4 +110,5 @@ azureml-logs
 # working folders
 data/
 models/
-tb_logs/
+outputs/
+sandbox/
