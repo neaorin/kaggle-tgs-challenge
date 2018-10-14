@@ -10,6 +10,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--config-file', help='JSON file containing run configuration')
 parser.add_argument('--entry-script', help='Entry Python script to run')
+parser.add_argument('--experiment-name', help='The experiment name to use')
 
 args = parser.parse_args()
 
@@ -24,8 +25,7 @@ if not args.entry_script:
 with open(args.config_file) as config_file:
     config = json.load(config_file)
 
-version = config['version']
-basic_name = config['name'] % (version)
+expname = args.experiment_name if args.experiment_name else 'tests'
 
 # check workspace 
 ws = Workspace.from_config('azureml/config.json')
@@ -42,12 +42,12 @@ except ComputeTargetException:
   compute_target.wait_for_completion(show_output=True)
   print(compute_target.get_status())
 
-script_name = args.entry_script.replace('.py','')
-exp = Experiment(workspace=ws, name=f'{basic_name}-{script_name}')
+exp = Experiment(workspace=ws, name=f'{expname}')
 
 script_params = {
+    '--config-file': args.config_file,
     '--data-folder': ds.as_mount(),
-    '--config-file': args.config_file
+    '--outputs-folder': 'outputs'
 }
 est = TensorFlow(
     source_directory='.', 
@@ -61,4 +61,4 @@ est = TensorFlow(
 
 run = exp.submit(config=est)
 
-print(f'Experiment {basic_name} submitted.')
+print(f'Experiment {expname} submitted.')

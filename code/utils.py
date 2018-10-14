@@ -177,7 +177,7 @@ def image_generator(features, labels, batch_size, aug_pipeline):
 
 def log_metric(label, value):
     try:
-        run = Run.get_submitted_run()
+        run = Run.get_context()
         run.log(label, value)
     except:
         print(f'{label}: {value}')
