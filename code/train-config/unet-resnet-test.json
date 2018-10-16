@@ -1,13 +1,21 @@
 {
-    "version": "test-11",
+    "version": "test-15",
     "name": "unet-resnet-%s",
+    "crossvalidation": {
+        "folds": 4
+    },
+    "input": {
+        "size": 101,
+        "channels": 1,
+        "normalize": true
+    },
     "stage1": {
         "epochs": 2,
-        "batch_size": 16
+        "batch_size": 32
     },
     "stage2": {
         "epochs": 2,
-        "batch_size": 16
+        "batch_size": 32
     }
 }
 

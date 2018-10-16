@@ -1,0 +1,2 @@
+FROM mcr.microsoft.com/azureml/base-gpu:0.1.3
+RUN apt-get update && apt-get -y install libsm6 libxrender1 libfontconfig1 python3-tk; pip install tensorflow-gpu==1.9.0 keras==2.2.1 tensorboard==1.9.0 scikit-learn scikit-image imgaug opencv-python pandas numpy tqdm segmentation_models jsonpickle azureml-core azureml-train

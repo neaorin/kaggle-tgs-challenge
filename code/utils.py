@@ -53,6 +53,74 @@ def iou(label, pred):
 def iou_2(label, pred):
     return tf.py_func(get_iou_vector, [label, pred >0], tf.float64)
 
+# iou metric used for scoring 
+# src: https://www.kaggle.com/aglotero/another-iou-metric
+def iou_metric(y_true_in, y_pred_in, print_table=False):
+    labels = y_true_in
+    y_pred = y_pred_in
+
+    true_objects = 2
+    pred_objects = 2
+
+    #  if all zeros, original code  generate wrong  bins [-0.5 0 0.5],
+    temp1 = np.histogram2d(labels.flatten(), y_pred.flatten(), bins=([0,0.5,1], [0,0.5, 1]))
+    intersection = temp1[0]
+    # Compute areas (needed for finding the union between all objects)
+    area_true = np.histogram(labels,bins=[0,0.5,1])[0]
+    area_pred = np.histogram(y_pred, bins=[0,0.5,1])[0]
+    area_true = np.expand_dims(area_true, -1)
+    area_pred = np.expand_dims(area_pred, 0)
+
+    # Compute union
+    union = area_true + area_pred - intersection
+  
+    # Exclude background from the analysis
+    intersection = intersection[1:,1:]
+    intersection[intersection == 0] = 1e-9
+    
+    union = union[1:,1:]
+    union[union == 0] = 1e-9
+
+    # Compute the intersection over union
+    iou = intersection / union
+
+    # Precision helper function
+    def precision_at(threshold, iou):
+        matches = iou > threshold
+        true_positives = np.sum(matches, axis=1) == 1   # Correct objects
+        false_positives = np.sum(matches, axis=0) == 0  # Missed objects
+        false_negatives = np.sum(matches, axis=1) == 0  # Extra objects
+        tp, fp, fn = np.sum(true_positives), np.sum(false_positives), np.sum(false_negatives)
+        return tp, fp, fn
+
+    # Loop over IoU thresholds
+    prec = []
+    if print_table:
+        print("Thresh\tTP\tFP\tFN\tPrec.")
+    for t in np.arange(0.5, 1.0, 0.05):
+        tp, fp, fn = precision_at(t, iou)
+        if (tp + fp + fn) > 0:
+            p = tp / (tp + fp + fn)
+        else:
+            p = 0
+        if print_table:
+            print("{:1.3f}\t{}\t{}\t{}\t{:1.3f}".format(t, tp, fp, fn, p))
+        prec.append(p)
+    
+    if print_table:
+        print("AP\t-\t-\t-\t{:1.3f}".format(np.mean(prec)))
+    return np.mean(prec)
+
+def iou_metric_batch(y_true_in, y_pred_in):
+    batch_size = y_true_in.shape[0]
+    metric = []
+    for batch in range(batch_size):
+        value = iou_metric(y_true_in[batch], y_pred_in[batch])
+        metric.append(value)
+    return np.mean(metric)
+
+
+
 # https://github.com/mkocabas/focal-loss-keras
 def focal_loss(gamma=2., alpha=.25):
     def focal_loss_fixed(y_true, y_pred):
@@ -173,11 +241,35 @@ def image_generator(features, labels, batch_size, aug_pipeline):
         batch_labels[:,:,:,:] = random_augmented_labels[:,:,:,:]
 
         yield batch_features, batch_labels
- 
 
+
+# used for converting the decoded image to rle mask
+def rle_encode(img):
+    '''
+    img: numpy array, 1 - mask, 0 - background
+    Returns run length as string formated
+    '''
+    pixels = img.flatten(order = 'F')
+    pixels = np.concatenate([[0], pixels, [0]])
+    runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
+    runs[1::2] -= runs[::2]
+    return ' '.join(str(x) for x in runs)
+
+# get predictions from a model
+def predict_result(model, x_test): 
+    # TTA: predict both original images and horizontal flips, then average them
+    x_test_reflect =  np.array([np.fliplr(x) for x in x_test])
+    preds_test = model.predict(x_test)
+    preds_test2_reflect = model.predict(x_test_reflect)
+    preds_test += np.array([ np.fliplr(x) for x in preds_test2_reflect] )
+    return preds_test/2
+
+# write a metric's value to the log
 def log_metric(label, value):
     try:
         run = Run.get_context()
         run.log(label, value)
     except:
         print(f'{label}: {value}')
+
+

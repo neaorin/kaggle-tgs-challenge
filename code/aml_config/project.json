@@ -1,1 +1,1 @@
-{"Id": "unet-resnet", "Scope": "/subscriptions/85574e2e-1809-4d70-97e0-8a9abdba8a3a/resourceGroups/tgschallenge/providers/Microsoft.MachineLearningServices/workspaces/tgschallenge/projects/unet-resnet"}
+{"Id": "production", "Scope": "/subscriptions/85574e2e-1809-4d70-97e0-8a9abdba8a3a/resourceGroups/tgschallenge/providers/Microsoft.MachineLearningServices/workspaces/tgschallenge/projects/production"}

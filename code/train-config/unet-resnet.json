@@ -1,34 +1,20 @@
 {
-    "version": "1",
+    "version": "2",
     "name": "unet-resnet-%s",
-    "image_augmentation": {
-        "flip_horizontal": true,
-        "flip_vertical": false
+    "crossvalidation": {
+        "folds": 4
     },
-    "encoder": {
-        "predefined": false,
-        "type": "unet-resnet",
-        "weights": "none"
+    "input": {
+        "size": 101,
+        "channels": 1,
+        "normalize": true
     },
-    "training": {
-        "stage1": {
-            "epochs": 100,
-            "batch_size": 16,
-            "optimizer": {
-                "name": "adam",
-                "initial_learning_rate": 0.01
-            },
-            "loss": "binary_crossentropy",
-            "keep_weights_frozen_epochs": 0
-        },
-        "stage2": {
-            "epochs": 80,
-            "batch_size": 16,
-            "optimizer": {
-                "name": "adam",
-                "initial_learning_rate": 0.005
-            },
-            "loss": "lovasz" 
-        }
+    "stage1": {
+        "epochs": 100,
+        "batch_size": 32
+    },
+    "stage2": {
+        "epochs": 100,
+        "batch_size": 32
     }
 }

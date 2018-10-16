@@ -8,5 +8,8 @@ opencv-python
 pandas
 numpy
 tqdm
-segmentation_models
+segmentation_models==0.1.2
 jsonpickle
+azureml-core
+azureml-train
+kaggle

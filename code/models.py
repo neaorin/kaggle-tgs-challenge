@@ -1,5 +1,6 @@
 from segmentation_models import Unet, FPN, Linknet
 from segmentation_models.utils import set_trainable
+from segmentation_models.backbones import get_preprocessing
 
 from keras.layers import Input,Dropout,BatchNormalization,Activation,Add
 from keras.layers.core import Lambda
@@ -7,17 +8,23 @@ from keras.layers.convolutional import Conv2D, Conv2DTranspose
 from keras.layers.pooling import MaxPooling2D
 from keras.layers.merge import concatenate
 
-def build_pretrained_model(model_type, backbone_name, encoder_weights, freeze_encoder):
+def build_pretrained_model(model_type, backbone_name, encoder_weights, freeze_encoder, activation='sigmoid'):
     if model_type == "Unet":
-        return Unet(backbone_name=backbone_name, encoder_weights=encoder_weights, freeze_encoder=freeze_encoder)
+        return Unet(backbone_name=backbone_name, encoder_weights=encoder_weights, freeze_encoder=freeze_encoder, activation=activation)
     elif model_type == "FPN":
-        return FPN(backbone_name=backbone_name, encoder_weights=encoder_weights, freeze_encoder=freeze_encoder)
+        return FPN(backbone_name=backbone_name, encoder_weights=encoder_weights, freeze_encoder=freeze_encoder, activation=activation)
     elif model_type == "Linknet":
-        return Linknet(backbone_name=backbone_name, encoder_weights=encoder_weights, freeze_encoder=freeze_encoder)
+        return Linknet(backbone_name=backbone_name, encoder_weights=encoder_weights, freeze_encoder=freeze_encoder, activation=activation)
     else:
         print('Pretrained model type is not supported.')
         return None
 
+def preprocess_input(input, backbone_name):
+    preprocessing_fn = get_preprocessing(backbone_name)
+    return preprocessing_fn(input)
+
+def unfreeze_weights(model):
+    set_trainable(model) 
 
 def BatchActivate(x):
     x = BatchNormalization()(x)

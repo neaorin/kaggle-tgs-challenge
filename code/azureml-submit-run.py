@@ -18,18 +18,16 @@ if not args.config_file:
     print('The --config-file parameter is missing, exiting.')
     sys.exit(1)
 
-if not args.entry_script:
-    print('The --entry-script parameter is missing, exiting.')
-    sys.exit(1)
+entry_script = args.entry_script if args.entry_script else 'train-fold.py'
+expname = args.experiment_name if args.experiment_name else 'tests'
 
 with open(args.config_file) as config_file:
     config = json.load(config_file)
 
-expname = args.experiment_name if args.experiment_name else 'tests'
 
 # check workspace 
 ws = Workspace.from_config('azureml/config.json')
-print(ws.name, ws.location, ws.resource_group, ws.location, sep = '\t')
+print(f'Using Azure ML Workspace {ws.name} in location {ws.location}')
 
 # default data store
 ds = ws.get_default_datastore()
@@ -42,23 +40,39 @@ except ComputeTargetException:
   compute_target.wait_for_completion(show_output=True)
   print(compute_target.get_status())
 
-exp = Experiment(workspace=ws, name=f'{expname}')
-
 script_params = {
     '--config-file': args.config_file,
     '--data-folder': ds.as_mount(),
     '--outputs-folder': 'outputs'
 }
-est = TensorFlow(
-    source_directory='.', 
-    script_params=script_params, 
-    entry_script=args.entry_script,
-    compute_target=compute_target, 
-    use_gpu=True,
-    use_docker=True, 
-    pip_requirements_file_path='requirements.txt'
+
+
+cv_folds = int(config['crossvalidation']['folds']) if config['crossvalidation'] is not None else None
+exp = Experiment(workspace=ws, name=f'{expname}')
+
+if cv_folds is not None:
+    for i in range(cv_folds):
+        script_params['--cv-currentfold'] = str(i)
+        est = TensorFlow(
+            source_directory='.', 
+            script_params=script_params, 
+            entry_script=entry_script,
+            compute_target=compute_target, 
+            use_gpu=True,
+            use_docker=True, 
+            pip_requirements_file_path='requirements.txt'
+            )
+        run = exp.submit(config=est)
+        print(f'Experiment {expname} submitted for fold {i}.')   
+else:
+    est = TensorFlow(
+        source_directory='.', 
+        script_params=script_params, 
+        entry_script=entry_script,
+        compute_target=compute_target, 
+        use_gpu=True,
+        use_docker=True, 
+        pip_requirements_file_path='requirements.txt'
     )
-
-run = exp.submit(config=est)
-
-print(f'Experiment {expname} submitted.')
+    run = exp.submit(config=est)
+    print(f'Experiment {expname} submitted.')
