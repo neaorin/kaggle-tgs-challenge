@@ -114,3 +114,6 @@ models/
 outputs/
 azureml_outputs/
 sandbox/
+
+# azure ml config
+code/aml_config/config.json

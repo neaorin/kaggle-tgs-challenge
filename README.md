@@ -130,7 +130,9 @@ Azure Machine Learning also allows you to [deploy your trained models](https://d
 
 1. [Create an Azure ML Workspace](https://docs.microsoft.com/en-us/azure/machine-learning/service/how-to-manage-workspace). You could name it `tgschallenge`.
 
-2. [Configure your local evironment](https://docs.microsoft.com/en-us/azure/machine-learning/service/how-to-configure-environment#create-a-workspace-configuration-file) to use the workspace. You need to update the `aml_config/config.json` file with the correct workspace identification data:
+    ![create azure Ml](media/azureml-create.png)
+
+2. [Configure your local evironment](https://docs.microsoft.com/en-us/azure/machine-learning/service/how-to-configure-environment#create-a-workspace-configuration-file) to use the workspace. You need to create or update the `aml_config/config.json` file with the correct workspace identification data:
 
     ```json
     {
