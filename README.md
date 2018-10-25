@@ -102,7 +102,7 @@ To train a relatively simple [U-Net](https://arxiv.org/abs/1505.04597) with [Res
 
 `python train_fold.py --config-file train-config/unet-resnet.json`
 
-Be prepared to wait until the training run is complete. Depending on the number of training epochs (you can configure them in the `unet-resnet.json` file)
+Be prepared to wait until the training run is complete. Depending on the number of training epochs (you can configure them in the `unet-resnet.json` file), it may take multiple hours to finish training.
 
 ## Examining the results
 
