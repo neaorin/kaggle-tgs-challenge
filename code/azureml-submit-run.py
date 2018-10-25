@@ -26,7 +26,7 @@ with open(args.config_file) as config_file:
 
 
 # check workspace 
-ws = Workspace.from_config('azureml/config.json')
+ws = Workspace.from_config('aml_config/config.json')
 print(f'Using Azure ML Workspace {ws.name} in location {ws.location}')
 
 # default data store
@@ -35,7 +35,7 @@ ds = ws.get_default_datastore()
 try:
   compute_target = ComputeTarget(workspace=ws, name='tgschallenge')
 except ComputeTargetException:
-  compute_config = BatchAiCompute.provisioning_configuration(vm_size='STANDARD_NC6', vm_priority='lowpriority', autoscale_enabled=True, cluster_min_nodes=0, cluster_max_nodes=4)
+  compute_config = BatchAiCompute.provisioning_configuration(vm_size='STANDARD_NC6', vm_priority='dedicated', autoscale_enabled=True, cluster_min_nodes=0, cluster_max_nodes=4)
   compute_target = ComputeTarget.create(ws, 'tgschallenge', compute_config)
   compute_target.wait_for_completion(show_output=True)
   print(compute_target.get_status())

@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import json
 import argparse
 
-from utils import resize_image, lovasz_loss, iou, iou_2, iou_metric_batch, cov_to_class, log_metric, rle_encode, predict_result
+from utils import resize_image, lovasz_loss, iou, iou_2, iou_metric_batch, cov_to_class, log_metric, rle_encode, predict_result, focal_loss
 from models import build_unet_resnet_model, build_pretrained_model, unfreeze_weights, preprocess_input
 
 from sklearn.model_selection import train_test_split, StratifiedKFold
@@ -34,8 +34,6 @@ import tensorflow as tf
 
 from keras.preprocessing.image import array_to_img, img_to_array, load_img
 
-#from imgaug import augmenters as iaa
-
 import time
 t_start = time.time()
 
@@ -56,6 +54,7 @@ cv_currentfold = int(args.cv_currentfold) if args.cv_currentfold else None
 
 os.makedirs(output_folder_path, exist_ok=True)
 os.makedirs(f'{output_folder_path}/models', exist_ok=True)
+os.makedirs(f'{output_folder_path}/figures', exist_ok=True)
 os.makedirs(f'{output_folder_path}/tb_logs', exist_ok=True)
 os.makedirs(f'{output_folder_path}/submissions', exist_ok=True)
 
@@ -83,14 +82,6 @@ img_color_mode = 'rgb' if img_channels == 3 else 'grayscale'
 upsample = lambda img: resize_image(img, img_size_target)
 downsample = lambda img: resize_image(img, img_size_ori)
 
-
-#aug_pipeline = iaa.Sequential([
-#            iaa.Fliplr(0.5) 
-#        ])
-
-datagen = ImageDataGenerator(
-    horizontal_flip=True)
-
 train_df = pd.read_csv(f'{data_folder_path}/train.csv', index_col='id', usecols=[0])
 depths_df = pd.read_csv(f'{data_folder_path}/depths.csv', index_col='id')
 train_df = train_df.join(depths_df)
@@ -99,7 +90,6 @@ train_df['images'] = [np.array(load_img(f'{data_folder_path}/train/images/{idx}.
 train_df['masks'] = [np.array(load_img(f'{data_folder_path}/train/masks/{idx}.png', color_mode='grayscale')) / 255 for idx in tqdm(train_df.index)]
 train_df['coverage'] = train_df.masks.map(np.sum) / pow(img_size_ori, 2)     
 train_df['coverage_class'] = train_df.coverage.map(cov_to_class)
-
 
 def create_train_validation_split(index, stratify, cv_folds, cv_currentfold):
     if cv_folds is None or cv_folds == 1:
@@ -128,6 +118,34 @@ y_valid = np.array(valid_df1.masks.map(upsample).tolist()).reshape(-1, img_size_
 x_train = np.append(x_train, [np.fliplr(x) for x in x_train], axis=0)
 y_train = np.append(y_train, [np.fliplr(x) for x in y_train], axis=0)
 
+data_gen_args = dict(
+                    horizontal_flip=True,
+                    rotation_range=20,
+                    shear_range=0.3, 
+                    zoom_range=0.25,
+                    fill_mode='reflect'
+                     )
+image_datagen = ImageDataGenerator(**data_gen_args)
+mask_datagen = ImageDataGenerator(**data_gen_args)
+
+datagen_seed = 1234
+
+#image_datagen.fit(x_train, augment=True, seed=datagen_seed)
+#mask_datagen.fit(y_train, augment=True, seed=datagen_seed)
+
+image_generator = image_datagen.flow(x_train, seed=datagen_seed, batch_size=16, shuffle=True)
+mask_generator = mask_datagen.flow(y_train, seed=datagen_seed, batch_size=16, shuffle=True)
+
+# Just zip the two generators to get a generator that provides augmented images and masks at the same time
+train_generator = zip(image_generator, mask_generator)
+
+custom_objects = {
+    'iou': iou, 
+    'iou_2': iou_2,
+    'focal_loss': focal_loss,
+    'lovasz_loss': lovasz_loss
+}
+
 ########################################
 ####                                ####
 ####            STAGE 1             ####
@@ -144,6 +162,17 @@ encoder = config['encoder'] if 'encoder' in config else None
 # model
 model1 = None
 
+# start from a trained model
+'''
+stored_trained_model = '../outputs/models/unet-resnet-datagen-4-cvfold3-stage2.model'
+print(f'Using stored trained model: {stored_trained_model}')
+model1s = load_model(stored_trained_model,custom_objects=custom_objects)
+input_x = model1s.layers[0].input
+
+output_layer = Activation('sigmoid',name='output_activation')(model1s.layers[-1].output)
+model1 = Model(input_x, output_layer)
+'''
+
 if encoder is not None:
     # use an architecture with an existing backbone
     model1 = build_pretrained_model(encoder['type'], encoder['backbone'], encoder['weights'], epochs_weights_frozen > 0)
@@ -157,34 +186,37 @@ else:
     output_layer = build_unet_resnet_model(input_layer, 16, 0.5)
     model1 = Model(input_layer, output_layer)
 
-c = optimizers.adam(lr = 0.01)
-model1.compile(loss='binary_crossentropy', optimizer=c, metrics=[iou])
 
-#early_stopping = EarlyStopping(monitor='val_iou', mode = 'max',patience=10, verbose=1)
+o1 = optimizers.SGD(lr = 0.01, momentum= 0.9, decay=0.0001)
+model1.compile(loss=focal_loss, optimizer=o1, metrics=[iou])
+
+#early_stopping = EarlyStopping(monitor='val_iou', mode = 'max', patience=30, verbose=1)
 model_checkpoint = ModelCheckpoint(f'{output_folder_path}/models/{basic_name}-stage1.model', monitor='iou', 
                                    mode = 'max', save_best_only=True, verbose=1)
-reduce_lr = ReduceLROnPlateau(monitor='val_iou', mode = 'max',factor=0.5, patience=5, min_lr=0.0001, verbose=1)
+reduce_lr = ReduceLROnPlateau(monitor='val_iou', mode = 'max',factor=0.5, patience=20, min_lr=0.0001, verbose=1)
 tb = TensorBoard(log_dir=f'{output_folder_path}/tb_logs/{basic_name}-stage1', batch_size=batch_size)
 
 steps_per_epoch = x_train.shape[0] / batch_size
 
-#history = model1.fit_generator(datagen.flow(x_train, y_train, batch_size),
-history = model1.fit(x_train, y_train,
+history = model1.fit_generator(train_generator,
+#history = model1.fit(x_train, y_train,
                     validation_data=[x_valid, y_valid], 
                     epochs=epochs-epochs_weights_frozen, 
-                    batch_size= batch_size, #steps_per_epoch = steps_per_epoch,
+                    #batch_size= batch_size, 
+                    steps_per_epoch = steps_per_epoch,
                     callbacks=[ model_checkpoint,reduce_lr, tb], 
                     verbose=2)
 
 if epochs_weights_frozen > 0:
     # unfreeze weights and keep training
     unfreeze_weights(model1)
-    #history = model1.fit_generator(datagen.flow(x_train, y_train, batch_size),
-    history = model1.fit(x_train, y_train,
+    history = model1.fit_generator(train_generator,
+    #history = model1.fit(x_train, y_train,
                     validation_data=[x_valid, y_valid], 
                     initial_epoch = epochs-epochs_weights_frozen,
                     epochs=epochs, 
-                    batch_size= batch_size, #steps_per_epoch = steps_per_epoch,
+                    #batch_size= batch_size, 
+                    steps_per_epoch = steps_per_epoch,
                     callbacks=[ model_checkpoint,reduce_lr, tb], 
                     verbose=2)
 
@@ -194,8 +226,12 @@ fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(15,5))
 
 ax_loss.plot(history.epoch, history.history['loss'], label='S1 Train loss'),
 ax_loss.plot(history.epoch, history.history['val_loss'], label='S1 Validation loss'),
+ax_loss.legend()
 ax_acc.plot(history.epoch, history.history['iou'], label='S1 Train IoU'),
 ax_acc.plot(history.epoch, history.history['val_iou'], label='S1 Validation IoU')
+ax_acc.legend()
+
+plt.savefig(f'{output_folder_path}/figures/{basic_name}-stage1-metrics.png')
 
 log_metric('S1 Train loss', min(history.history['loss']))
 log_metric('S1 Validation loss', min(history.history['val_loss']))
@@ -210,38 +246,39 @@ log_metric('S1 Validation IoU', max(history.history['val_iou']))
 
 print('Stage 2 training.')
 
-model_stage1 = load_model(f'{output_folder_path}/models/{basic_name}-stage1.model',custom_objects={'iou': iou})
+model_stage1 = load_model(f'{output_folder_path}/models/{basic_name}-stage1.model',custom_objects=custom_objects)
 
 # remove activation layer and use losvasz loss
 input_x = model_stage1.layers[0].input
 
 output_layer = model_stage1.layers[-1].input
 model2 = Model(input_x, output_layer)
-c = optimizers.adam(lr = 0.005)
+o2 = optimizers.SGD(lr = 0.005, momentum= 0.9, decay=0.0001)
 
 # lovasz_loss needs input range (-inf, +inf), so cancel the last "sigmoid" activation  
 # Then the default threshod for pixel prediction is 0 instead of 0.5, as in my_iou_metric_2.
-model2.compile(loss=lovasz_loss, optimizer=c, metrics=[iou_2])
+model2.compile(loss=lovasz_loss, optimizer=o2, metrics=[iou_2])
 
 
 epochs = config['stage2']['epochs']
 batch_size = config['stage2']['batch_size']
 
-early_stopping = EarlyStopping(monitor='val_iou_2', mode = 'max', patience=20, verbose=1)
+early_stopping = EarlyStopping(monitor='val_iou_2', mode = 'max', patience=16, verbose=1)
 model_checkpoint = ModelCheckpoint(f'{output_folder_path}/models/{basic_name}-stage2.model', monitor='val_iou_2', 
                                    mode = 'max', save_best_only=True, verbose=1)
-reduce_lr = ReduceLROnPlateau(monitor='val_iou_2', mode = 'max',factor=0.5, patience=7, min_lr=0.00001, verbose=1)
+reduce_lr = ReduceLROnPlateau(monitor='val_iou_2', mode = 'max',factor=0.5, patience=8, min_lr=0.00001, verbose=1)
 tb = TensorBoard(log_dir=f'{output_folder_path}/tb_logs/{basic_name}-stage2', batch_size=batch_size)
 
 
 steps_per_epoch = x_train.shape[0] / batch_size
 
 
-#history = model2.fit_generator(datagen.flow(x_train, y_train, batch_size),
-history = model2.fit(x_train, y_train,
+history = model2.fit_generator(train_generator,
+#history = model2.fit(x_train, y_train,
                     validation_data=[x_valid, y_valid], 
                     epochs=epochs, 
-                    batch_size= batch_size, #steps_per_epoch = steps_per_epoch,
+                    #batch_size= batch_size, 
+                    steps_per_epoch = steps_per_epoch,
                     callbacks=[ model_checkpoint,reduce_lr, tb], 
                     verbose=2)
 
@@ -251,8 +288,12 @@ fig, (ax_loss, ax_acc) = plt.subplots(1, 2, figsize=(15,5))
 
 ax_loss.plot(history.epoch, history.history['loss'], label='S2 Train loss'),
 ax_loss.plot(history.epoch, history.history['val_loss'], label='S2 Validation loss'),
+ax_loss.legend()
 ax_acc.plot(history.epoch, history.history['iou_2'], label='S2 Train IoU'),
 ax_acc.plot(history.epoch, history.history['val_iou_2'], label='S2 Validation IoU')
+ax_acc.legend()
+
+plt.savefig(f'{output_folder_path}/figures/{basic_name}-stage2-metrics.png')
 
 log_metric('S2 Train loss', min(history.history['loss']))
 log_metric('S2 Validation loss', min(history.history['val_loss']))
@@ -267,7 +308,7 @@ log_metric('S2 Validation IoU', max(history.history['val_iou_2']))
 ########################################
 
 model = load_model(f'{output_folder_path}/models/{basic_name}-stage2.model', 
-    custom_objects={'iou_2': iou_2, 'lovasz_loss': lovasz_loss})
+    custom_objects=custom_objects)
 
 preds_valid = predict_result(model, x_valid)
 
@@ -292,6 +333,8 @@ plt.xlabel("Threshold")
 plt.ylabel("IoU")
 plt.title(f"Threshold vs IoU ({threshold_best}, {iou_best})")
 plt.legend()
+
+plt.savefig(f'{output_folder_path}/figures/{basic_name}-iou-threshold.png')
 
 
 # predict on the test dataset

@@ -109,6 +109,7 @@ azureml-logs
 
 # working folders
 data/
+input/
 models/
 outputs/
 azureml_outputs/

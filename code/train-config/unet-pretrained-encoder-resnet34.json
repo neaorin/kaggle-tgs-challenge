@@ -1,5 +1,5 @@
 {
-    "version": "3",
+    "version": "7",
     "name": "unet-pretrained-encoder-resnet34-%s",
     "crossvalidation": {
         "folds": 4
@@ -15,12 +15,12 @@
         "weights": "imagenet"
     },
     "stage1": {
-        "epochs": 80,
+        "epochs": 50,
         "epochs_weights_frozen": 0,
-        "batch_size": 32
+        "batch_size": 16
     },
     "stage2": {
         "epochs": 80,
-        "batch_size": 32
+        "batch_size": 16
     }
 }

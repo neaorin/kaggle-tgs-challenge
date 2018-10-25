@@ -1,5 +1,5 @@
 {
-    "version": "2",
+    "version": "datagen-6",
     "name": "unet-resnet-%s",
     "crossvalidation": {
         "folds": 4
@@ -10,11 +10,11 @@
         "normalize": true
     },
     "stage1": {
-        "epochs": 100,
-        "batch_size": 32
+        "epochs": 20,
+        "batch_size": 16
     },
     "stage2": {
-        "epochs": 100,
-        "batch_size": 32
+        "epochs": 50,
+        "batch_size": 16
     }
 }

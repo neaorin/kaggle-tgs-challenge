@@ -13,3 +13,5 @@ jsonpickle
 azureml-core
 azureml-train
 kaggle
+seaborn
+matplotlib
