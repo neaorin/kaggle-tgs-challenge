@@ -2,6 +2,8 @@
 
 This is a solution to the [TGS Salt Identification Challenge](https://www.kaggle.com/c/tgs-salt-identification-challenge) competition which ran on Kaggle in 2018.
 
+This solution has an accompanying presentation, which is [available on SlideShare](https://www.slideshare.net/SorinPeste/using-deep-learning-computer-vision-to-search-for-oil-and-gas).
+
 ## The problem: Segment salt deposits beneath the Earth's surface
 
 Several areas of Earth with large accumulations of oil and gas also have huge deposits of salt below the surface.
