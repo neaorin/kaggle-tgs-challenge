@@ -53,7 +53,9 @@ This solution trains various image segmentation models on the training data prov
 
     `git clone https://github.com/neaorin/kaggle-tgs-challenge`
 
-7. Create a folder to store the train and test data:
+7. Inside the solution folder, create a subfolder to store the train and test data:
+
+    `cd kaggle-tgs-challenge`
 
     `mkdir data`
 
@@ -62,7 +64,7 @@ This solution trains various image segmentation models on the training data prov
     You will need to unpack the data inside your locally-created `data` folder. You should end up with the following folder structure:
 
     ```sh
-    kaggle-tgs-salt
+    kaggle-tgs-challenge
     └--- data
         └--- test
             └--- images
@@ -104,7 +106,7 @@ To train a relatively simple [U-Net](https://arxiv.org/abs/1505.04597) with [Res
 
 `python train_fold.py --config-file train-config/unet-resnet.json`
 
-Be prepared to wait until the training run is complete. Depending on the number of training epochs (you can configure them in the `unet-resnet.json` file), it may take multiple hours to finish training.
+Wait until the training run is complete. Depending on the number of training epochs (you can configure them in the `unet-resnet.json` file), and the hardware you have available, it may take multiple hours to finish training.
 
 ## Examining the results
 
